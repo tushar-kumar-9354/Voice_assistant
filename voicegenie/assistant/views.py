@@ -132,13 +132,58 @@ def index(request):
     return render(request, 'assistant/index.html')
 
 @csrf_exempt
+
 def ask_gemini(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'Only POST allowed'}, status=405)
 
     try:
+        data    = json.loads(request.body)
+        prompt  = data.get('prompt', '').strip()
+        history = data.get('history', [])  # ⬅️ New
+
+        if not prompt:
+            return JsonResponse({'error': 'Empty prompt'}, status=400)
+
+        # 1️⃣ Build full prompt with memory
+        full_prompt = ""
+        for msg in history:
+            if msg["role"] == "user":
+                full_prompt += f"User: {msg['text']}\n"
+            elif msg["role"] == "bot":
+                full_prompt += f"Bot: {msg['text']}\n"
+        full_prompt += f"User: {prompt}\nBot:"
+
+        # 2️⃣ Gemini response
+        resp  = model.generate_content(full_prompt)
+        reply = resp.text.strip()
+
+        # 3️⃣ Generate speech
+        filename  = f"{uuid.uuid4().hex}.mp3"
+        audio_dir = os.path.join('static', 'assistant', 'audio')
+        os.makedirs(audio_dir, exist_ok=True)
+        path = os.path.join(audio_dir, filename)
+
+        subprocess.run([
+            "edge-tts",
+            "--text", reply,
+            "--voice", "en-US-AriaNeural",
+            "--write-media", path
+        ], check=True)
+
+        audio_url = f"/static/assistant/audio/{filename}"
+
+        return JsonResponse({'reply': reply, 'audio_url': audio_url})
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST allowed'}, status=405)
+
+    try:
         data   = json.loads(request.body)
-        prompt = data.get('prompt','').strip()
+        prompt = data.get('prompt', '').strip()
         if not prompt:
             return JsonResponse({'error': 'Empty prompt'}, status=400)
 
@@ -150,7 +195,7 @@ def ask_gemini(request):
 
         # 2️⃣ Prepare a unique filename
         filename = f"{uuid.uuid4().hex}.mp3"
-        audio_dir = os.path.join('static','assistant','audio')
+        audio_dir = os.path.join('static', 'assistant', 'audio')
         os.makedirs(audio_dir, exist_ok=True)
         path = os.path.join(audio_dir, filename)
 
@@ -162,10 +207,10 @@ def ask_gemini(request):
             "--write-media", path
         ], check=True)
 
-        # 4️⃣ Read it back and return
-        with open(path, 'rb') as f:
-            data = f.read()
-        return HttpResponse(data, content_type='audio/mpeg')
+        # 4️⃣ Build audio URL
+        audio_url = f"/static/assistant/audio/{filename}"
+
+        return JsonResponse({'reply': reply, 'audio_url': audio_url})
 
     except subprocess.CalledProcessError:
         return JsonResponse({'error': 'TTS generation failed'}, status=500)

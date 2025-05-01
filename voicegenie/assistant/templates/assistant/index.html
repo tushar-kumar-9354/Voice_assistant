@@ -4,19 +4,134 @@
 <head>
   <meta charset="UTF-8" />
   <title>VoiceGenie</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
   <style>
-    body { font-family: sans-serif; padding: 2rem; }
-    #status { margin-bottom: 1rem; color: #555; }
-    button { padding: .5rem 1rem; font-size: 1rem; }
-    #conversation p { margin: .5rem 0; }
+    body {
+      font-family: 'Poppins', sans-serif;
+      line-height: 1.5;
+      padding: 2rem;
+      background: url('https://easy-peasy.ai/cdn-cgi/image/quality=80,format=auto,width=700/https://media.easy-peasy.ai/00a02138-536a-49e0-95fa-6a58e899c001/9ae25be5-c975-4dd2-bc12-b17becd4cd54.png') no-repeat top center / cover;
+      margin: 0;
+      color: #fff;
+    }
+    h1 {
+      font-size: 3rem;
+      text-align: center;
+      margin-bottom: 1rem;
+      text-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+      color: #00bfff; /* Bright blue from the image */
+    }
+    .main-content {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 1rem;
+      background: rgba(0,0,0,0.5); /* Reduced opacity for better visibility */
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.2);
+      backdrop-filter: blur(5px); /* Blur for enhanced readability */
+    }
+    #status {
+      font-size: 1.2rem;
+      font-style: italic;
+      text-align: center;
+      margin-bottom: 1rem;
+      color: #fff;
+    }
+    #startBtn {
+      background-color: #00bfff; /* Bright blue to match the background */
+      color: white;
+      border: none;
+      padding: 10px 20px; /* Reduced padding to make button shorter */
+      font-size: 1.5rem;
+      cursor: pointer;
+      margin: 10px auto;
+      display: block;
+      border-radius: 50px;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+    #startBtn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+    }
+    #conversation {
+      padding: 10px;
+      max-height: 400px;
+      overflow-y: auto;
+      background: none;
+      border-radius: 10px;
+      margin-top: 20px;
+    }
+    #conversation p {
+      margin: 10px 0;
+      padding: 10px 15px;
+      border-radius: 20px;
+      max-width: 80%;
+      position: relative;
+      animation: fadeIn 0.5s ease;
+      background-color: rgba(0,0,0,0.5); /* Semi-transparent for readability */
+      color: #fff;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.5); /* Shadow for text contrast */
+    }
+    #conversation p.user {
+      background-color: #00bfff; /* Bright blue for user messages */
+      text-align: right;
+      margin-left: auto;
+    }
+    #conversation p.assistant {
+      background-color: #343a40; /* Dark gray for assistant messages */
+      text-align: left;
+      margin-right: auto;
+    }
+    #conversation p::before {
+      content: attr(data-time);
+      position: absolute;
+      bottom: -20px;
+      font-size: 0.8rem;
+      color: #fff;
+    }
+    #conversation p.user::before {
+      right: 0;
+    }
+    #conversation p.assistant::before {
+      left: 0;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @media (max-width: 600px) {
+      .main-content {
+        max-width: 100%;
+        padding: 0 10px;
+      }
+      #startBtn {
+        width: 100%;
+      }
+    }
   </style>
 </head>
 <body>
   <h1>🎤 VoiceGenie</h1>
-  <div id="status">Ready</div>
-  <button id="startBtn">Start Listening</button>
-  <div id="conversation"></div>
+  <div class="main-content">
+    <div id="status">Ready</div>
+    <button id="startBtn">🎤 Start Listening</button>
+    <div id="conversation"></div>
+  </div>
   <audio id="responseAudio" hidden></audio>
   <script src="{% static 'assistant/app.js' %}"></script>
+  <script>
+    // Add timestamps to messages
+    function addMessage(text, type) {
+      const conversation = document.getElementById('conversation');
+      const p = document.createElement('p');
+      p.textContent = text;
+      p.classList.add(type);
+      const now = new Date();
+      p.setAttribute('data-time', now.toLocaleTimeString());
+      conversation.appendChild(p);
+      conversation.scrollTop = conversation.scrollHeight;
+    }
+  </script>
 </body>
 </html>

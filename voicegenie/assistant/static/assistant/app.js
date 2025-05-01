@@ -26,32 +26,46 @@ if (!window.SpeechRecognition) {
 
   startBtn.onclick = () => recog.start();
 }
+const chatHistory = []; // 💾 Tracks full conversation
 
 async function askGPT(prompt) {
   try {
+    // Save user input
+    chatHistory.push({ role: "user", text: prompt });
+
     const res = await fetch('/ask/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-CSRFToken': getCookie('csrftoken')
       },
-      body: JSON.stringify({ prompt })
+      body: JSON.stringify({ prompt, history: chatHistory })
     });
+
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.error || res.statusText);
     }
-    const blob = await res.blob();
-    const url  = URL.createObjectURL(blob);
-    responseAudio.src    = url;
+
+    const data = await res.json();
+
+    // Save bot reply
+    chatHistory.push({ role: "bot", text: data.reply });
+
+    // Display response
+    conversation.innerHTML += `<p><strong>Bot:</strong> ${data.reply}</p>`;
+    responseAudio.src = data.audio_url;
     responseAudio.hidden = false;
     await responseAudio.play();
-    conversation.innerHTML += `<p><strong>Bot:</strong> (spoken)</p>`;
+
   } catch (e) {
     statusDiv.textContent = `❌ ${e.message}`;
   }
 }
 
+  
+
 function getCookie(name) {
   return document.cookie.match(new RegExp('(^|;)\\s*' + name + '=([^;]+)'))?.pop() || '';
 }
+
