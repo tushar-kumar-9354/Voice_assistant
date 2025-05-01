@@ -1,14 +1,7 @@
 from django.urls import path
-from . import views
-from django.conf import settings
-from django.conf.urls.static import static
+from .views import index, ask_gemini
 
 urlpatterns = [
-    path('', views.index, name='index'),
-    path('ask/', views.ask_gemini, name='ask'),
-    path('history/', views.get_history, name='history'),
+    path('',       index,      name='index'),
+    path('ask/',   ask_gemini, name='ask'),
 ]
-
-
-if settings.DEBUG:
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

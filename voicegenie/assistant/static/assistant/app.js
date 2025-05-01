@@ -1,108 +1,57 @@
-let recognition;
-let isListening = false;
+const startBtn       = document.getElementById('startBtn');
+const statusDiv      = document.getElementById('status');
+const conversation   = document.getElementById('conversation');
+const responseAudio  = document.getElementById('responseAudio');
 
+window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (!window.SpeechRecognition) {
+  statusDiv.textContent = "🚫 Speech recognition not supported";
+  startBtn.disabled = true;
+} else {
+  const recog = new SpeechRecognition();
+  recog.lang            = 'en-US';
+  recog.interimResults  = false;
+  recog.continuous       = false;
 
-const outputDiv = document.getElementById('output');
+  recog.onstart = () => statusDiv.textContent = "Listening…";
+  recog.onend   = () => statusDiv.textContent = "Processing…";
+  recog.onerror = e => statusDiv.textContent = `Error: ${e.error}`;
 
-// Restore old conversation
-window.onload = () => {
-  outputDiv.innerHTML = sessionStorage.getItem("chatHistory") || "";
-};
-async function askQuestion() {
-  const question = document.getElementById("question").value;
-  const audioPlayer = document.getElementById("responseAudio");
+  recog.onresult = async e => {
+    const text = e.results[0][0].transcript.trim();
+    conversation.innerHTML += `<p><strong>You:</strong> ${text}</p>`;
+    await askGPT(text);
+    statusDiv.textContent = "Ready";
+  };
 
-  const response = await fetch("/ask/", {
-      method: "POST",
+  startBtn.onclick = () => recog.start();
+}
+
+async function askGPT(prompt) {
+  try {
+    const res = await fetch('/ask/', {
+      method: 'POST',
       headers: {
-          "Content-Type": "application/json"
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken')
       },
-      body: JSON.stringify({ prompt: question })
-  });
-
-  if (response.ok) {
-      const blob = await response.blob();
-      const audioUrl = URL.createObjectURL(blob);
-      audioPlayer.src = audioUrl;
-      audioPlayer.play();
-  } else {
-      alert("Failed to get audio response.");
+      body: JSON.stringify({ prompt })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || res.statusText);
+    }
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    responseAudio.src    = url;
+    responseAudio.hidden = false;
+    await responseAudio.play();
+    conversation.innerHTML += `<p><strong>Bot:</strong> (spoken)</p>`;
+  } catch (e) {
+    statusDiv.textContent = `❌ ${e.message}`;
   }
 }
-
-
-function startListening() {
-  if (!('webkitSpeechRecognition' in window)) {
-    alert("Your browser doesn't support speech recognition.");
-    return;
-  }
-
-  recognition = new webkitSpeechRecognition();
-  recognition.lang = 'en-US';
-  recognition.continuous = false;
-  recognition.interimResults = false;
-
-  recognition.onresult = function (event) {
-    const transcript = event.results[0][0].transcript;
-    sendToBackend(transcript);
-  };
-
-  recognition.onerror = function (event) {
-    console.error("Error:", event.error);
-  };
-
-  recognition.onend = function () {
-    isListening = false;
-  };
-
-  recognition.start();
-  isListening = true;
-}
-
-function stopListening() {
-  if (recognition && isListening) {
-    recognition.stop();
-    isListening = false;
-  }
-}
-
-function sendToBackend(text) {
-  const csrftoken = getCookie("csrftoken");
-
-  fetch("/ask/", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-CSRFToken": csrftoken,
-    },
-    body: JSON.stringify({ prompt: text })
-  })
-    .then(response => response.blob())
-    .then(blob => {
-      const audio = new Audio(URL.createObjectURL(blob));
-      audio.play();
-    })
-    .catch(error => console.error("Error:", error));
-}
-
-
-function speak(text) {
-  const audio = new Audio(`/ask/?text=${encodeURIComponent(text)}`);
-  audio.play();
-}
-
 
 function getCookie(name) {
-  let cookieValue = "";
-  if (document.cookie && document.cookie !== "") {
-    const cookies = document.cookie.split(";");
-    for (let cookie of cookies) {
-      cookie = cookie.trim();
-      if (cookie.startsWith(name + "=")) {
-        cookieValue = decodeURIComponent(cookie.slice(name.length + 1));
-        break;
-      }
-    }
-  }
-  return cookieValue;
+  return document.cookie.match(new RegExp('(^|;)\\s*' + name + '=([^;]+)'))?.pop() || '';
 }

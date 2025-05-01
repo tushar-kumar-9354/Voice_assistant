@@ -1,25 +1,22 @@
-
 {% load static %}
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Voice Assistant</title>
-  {% load static %}
-  <script src="{% static 'assistant/app.js' %}" defer></script>
+  <meta charset="UTF-8" />
+  <title>VoiceGenie</title>
   <style>
-    body { font-family: Arial; margin: 30px; }
-    #output { margin-top: 20px; max-height: 400px; overflow-y: auto; }
-    button { margin-right: 10px; padding: 10px 20px; }
+    body { font-family: sans-serif; padding: 2rem; }
+    #status { margin-bottom: 1rem; color: #555; }
+    button { padding: .5rem 1rem; font-size: 1rem; }
+    #conversation p { margin: .5rem 0; }
   </style>
 </head>
 <body>
-  <h1>🎙️ AI Voice Assistant</h1>
-  <button onclick="startListening()">Start</button>
-  <button onclick="stopListening()">Stop</button>
-  <audio id="responseAudio" controls hidden></audio>
-
-  <div id="output"></div>
+  <h1>🎤 VoiceGenie</h1>
+  <div id="status">Ready</div>
+  <button id="startBtn">Start Listening</button>
+  <div id="conversation"></div>
+  <audio id="responseAudio" hidden></audio>
+  <script src="{% static 'assistant/app.js' %}"></script>
 </body>
 </html>

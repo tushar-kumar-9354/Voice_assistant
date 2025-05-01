@@ -1,71 +1,57 @@
+# assistant/views.py (CORRECTED IMPORTS)
 from django.shortcuts import render
-from django.http import HttpResponse, JsonResponse ,FileResponse
+from django.http import HttpResponse, JsonResponse, FileResponse  # ✅ Correct import
 from django.views.decorators.csrf import csrf_exempt
+# Correct async imports
+from django.conf import settings
 import json
 import os
+import asyncio
+import subprocess
 import google.generativeai as genai
 import edge_tts
-import asyncio
 from .models import ChatHistory
-from asgiref.sync import sync_to_async
-from django.conf import settings
-import subprocess
-# Gemini setup
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse, HttpResponse
+import json
+import traceback
+import edge_tts
+import os, json, subprocess, uuid
+from django.shortcuts  import render
+from django.http import HttpResponse, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+import google.generativeai as genai
+
+
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel("gemini-2.0-flash")
 
 def index(request):
     return render(request, 'assistant/index.html')
 
-@sync_to_async
-def save_chat(session_id, prompt, reply):
-    ChatHistory.objects.create(session_id=session_id, prompt=prompt, response=reply)
 
-# Helper to collect async audio stream as bytes
-async def get_audio_bytes(text):
-    communicate = edge_tts.Communicate(text, "en-IN-NeerjaNeural")
-    audio_data = b""
-    async for chunk in communicate.stream():
-        if "audio" in chunk:
-            audio_data += chunk["audio"]
-    return audio_data
 
-@csrf_exempt
-@csrf_exempt
-def ask_gemini(request):
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            prompt = data.get("prompt", "").strip()
-            print("Received Prompt:", prompt)  # 👈 Check input
+# Load your GEMINI_API_KEY from env in settings.py or .env
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+model = genai.GenerativeModel("gemini-2.0-flash")
 
-            if not prompt:
-                return JsonResponse({"error": "Empty prompt"}, status=400)
+def index(request):
+    return render(request, 'assistant/index.html')
 
-            # Gemini response
-            response = model.generate_content(prompt)
-            reply = response.text.strip()
-            print("Gemini Reply:", reply)  # 👈 Check Gemini output
 
-            # Save session + chat
-            session_id = request.session.session_key
-            if not session_id:
-                request.session.save()
-                session_id = request.session.session_key
+import os, json, subprocess, uuid
+from django.shortcuts     import render
+from django.http          import HttpResponse, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+import google.generativeai as genai
 
-            asyncio.run(save_chat(session_id, prompt, reply))
+# Load your GEMINI_API_KEY from env in settings.py or .env
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+model = genai.GenerativeModel("gemini-2.0-flash")
 
-            # Get audio bytes
-            audio_bytes = asyncio.run(get_audio_bytes(reply))
-            print("Audio Bytes Length:", len(audio_bytes))  # 👈 Check if audio is non-empty
+def index(request):
+    return render(request, 'assistant/index.html')
 
-            return HttpResponse(audio_bytes, content_type="audio/mpeg")
-
-        except Exception as e:
-            print("Error in /ask/:", str(e))  # 👈 Catch exception
-            return JsonResponse({"error": str(e)}, status=500)
-
-    return JsonResponse({"error": "Invalid request method"}, status=405)
 
 def get_history(request):
     session_id = request.session.session_key
@@ -114,3 +100,74 @@ def get_audio_bytes(text):
     except Exception as e:
         print("Audio generation error:", str(e))
         return b""
+# Temporary test route
+@csrf_exempt
+def test_connection(request):
+    try:
+        # Test Gemini
+        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+        model = genai.GenerativeModel('gemini-2.0-flash')
+        response = model.generate_content("Test connection")
+        
+        # Test TTS
+        communicate = edge_tts.Communicate("Test audio", "en-US-AriaNeural")
+        
+        return JsonResponse({
+            'gemini_working': bool(response.text),
+            'tts_working': True
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+import os, json, subprocess, uuid
+from django.shortcuts     import render
+from django.http          import HttpResponse, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+import google.generativeai as genai
+
+# Load your GEMINI_API_KEY from env in settings.py or .env
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+model = genai.GenerativeModel("gemini-2.0-flash")
+
+def index(request):
+    return render(request, 'assistant/index.html')
+
+@csrf_exempt
+def ask_gemini(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST allowed'}, status=405)
+
+    try:
+        data   = json.loads(request.body)
+        prompt = data.get('prompt','').strip()
+        if not prompt:
+            return JsonResponse({'error': 'Empty prompt'}, status=400)
+
+        # 1️⃣ Get Gemini text reply
+        resp  = model.generate_content(prompt)
+        reply = resp.text.strip()
+        if not reply:
+            return JsonResponse({'error': 'No reply from Gemini'}, status=500)
+
+        # 2️⃣ Prepare a unique filename
+        filename = f"{uuid.uuid4().hex}.mp3"
+        audio_dir = os.path.join('static','assistant','audio')
+        os.makedirs(audio_dir, exist_ok=True)
+        path = os.path.join(audio_dir, filename)
+
+        # 3️⃣ Run Edge-TTS CLI to write the file
+        subprocess.run([
+            "edge-tts",
+            "--text", reply,
+            "--voice", "en-US-AriaNeural",
+            "--write-media", path
+        ], check=True)
+
+        # 4️⃣ Read it back and return
+        with open(path, 'rb') as f:
+            data = f.read()
+        return HttpResponse(data, content_type='audio/mpeg')
+
+    except subprocess.CalledProcessError:
+        return JsonResponse({'error': 'TTS generation failed'}, status=500)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

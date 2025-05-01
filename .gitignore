@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.env
+
+# Django
+db.sqlite3
+/static/assistant/audio/
+
+# macOS
+.DS_Store
+.venv/
